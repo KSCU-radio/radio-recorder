@@ -12,17 +12,17 @@ def getTodaysShows():
 
 	# Structure of dailyRecordingSchedule = [
 	# 	{
-	# 		'Name of Show 1': {
-	# 			'showStart' : datetime,
-	# 			'showEnd': datetime,
-	# 			'duration': int
-	# 		},
-	# 		'Name of Show 2': {
-	# 			'showStart' : datetime,
-	# 			'showEnd': datetime,
-	# 			'duration': int
-	# 		}
-	# 	}
+	# 		'showName': 'Name of Show 1'
+	# 		'showStart' : datetime,
+	# 		'showEnd': datetime,
+	# 		'duration': int
+	# 	},
+	# 	{
+	# 		'showName': 'Name of Show 2'
+	# 		'showStart' : datetime,
+	# 		'showEnd': datetime,
+	# 		'duration': int
+	# 	},
 	# ]
 	# 
 	# Time will take into consideration Daylight Savings
@@ -36,13 +36,10 @@ def getTodaysShows():
 		duration = stationData['items'][i]['duration']	
 		if showName != 'KSCU Autoplay' and showStart.date()==date.today():
 			todaysRecordingSchedule.append({
-				showName : {
+					'showName': showName,
 					'showStart' : showStart,
 					'showEnd' : showEnd,
 					'duration' : duration
-				}
 			})
 
 	return todaysRecordingSchedule
-
-
