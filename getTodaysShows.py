@@ -34,7 +34,7 @@ def getTodaysShows():
 		showStart = parser.parse(stationData['items'][i]['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(stationData['items'][i]['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = stationData['items'][i]['duration']	
-		if showName != 'KSCU Autoplay' and showStart.date()==date.today():
+		if stationData['items'][i]['category'] != 'Automation' and showStart.date()==date.today():
 			todaysRecordingSchedule.append({
 					'showName': showName,
 					'showStart' : showStart,

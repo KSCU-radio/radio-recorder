@@ -1,5 +1,5 @@
 from getTodaysShows import *
-import datetime # https://docs.python.org/3/library/datetime.html
+from datetime import datetime# https://docs.python.org/3/library/datetime.html
 import ffmpeg # https://kkroening.github.io/ffmpeg-python/
 import sched, time # https://pythontic.com/concurrency/scheduler/introduction
 import os
@@ -17,13 +17,20 @@ def record(duration, showName, date):
 	commandStr = commandStr + "'" + str(duration) + "' -y " + str(date) + "_" + showName + ".mp3"
 	os.system(commandStr)
 
-# For each of the items in today's schedule
-# Add to recording schedule
-# Convert to epoch time for the enterabs function
-for i in range(len(todaysRecordingSchedule)):
-		show = todaysRecordingSchedule[i]
-		epochStart = show['showStart'].strftime('%s')
-		recorderSchedule.enterabs(epochStart, 0, record, argument=(show['duration'], show['showName'], show['showStart'].date()))
-#print(recorderSchedule.queue)
-recorderSchedule.run()
+def runSchedule():
+	# For each of the items in today's schedule
+	# Add to recording schedule
+	# Convert to epoch time for the enterabs function
+	for i in range(len(todaysRecordingSchedule)):
+			show = todaysRecordingSchedule[i]
+			epochStart = show['showStart'].strftime('%s')
+			recorderSchedule.enterabs(int(epochStart), 0, record, argument=(show['duration'], show['showName'], show['showStart'].date()))
+
+	recorderSchedule.run()
+
+while True:
+	currentTime = datetime.now().strftime("%H:%M")
+	if currentTime == "06:45":
+		runSchedule()
+	time.sleep(60)
 
