@@ -74,7 +74,7 @@ def runSchedule():
 
 while True:
 	currentTime = datetime.now().strftime("%H:%M")
-	if currentTime == "12:25":
+	if currentTime == "6:45":
 		runSchedule()
 	time.sleep(60)
 
