@@ -6,8 +6,8 @@ from dateutil import parser
 import requests
 
 # ffmpeg location needs to be updated depending on system
-ffmpeg = '/opt/homebrew/bin/ffmpeg' # for macOS
-#ffmpeg = '/usr/bin/ffmpeg' # for EC2
+#ffmpeg = '/opt/homebrew/bin/ffmpeg' # for macOS
+ffmpeg = '/usr/bin/ffmpeg' # for EC2
 
 def getTodaysShows():
 	stationData = requests.get(f"https://spinitron.com/api/shows?access-token=fsr9w2R8irUUqUkze_QUcyB3&count=15")
@@ -55,9 +55,8 @@ def getTodaysShows():
 def sendToS3(todaysRecordingSchedule):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
-	for i in range(len(todaysRecordingSchedule)):
-		showName = todaysRecordingSchedule[i]['showName']
-		fileName = todaysRecordingSchedule['showStart'].date() + showName
+	for i in range(len(fileName)):
+		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
 		sendStr = 'aws s3 cp '
 		sendStr = sendStr + fileName + ' s3://show-bucket-test'
 		os.system(sendStr)
@@ -65,9 +64,9 @@ def sendToS3(todaysRecordingSchedule):
 
 # Create string in the format below:
 # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
-def record(duration, showName, date):
+def record(duration, fileName):
 	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t '
-	commandStr = commandStr + "'" + str(duration) + "' -y " + str(date) + "_" + showName + ".mp3"
+	commandStr = commandStr + "'" + str(duration) + "' -y " + fileName + ".mp3"
 	os.system(commandStr)
 
 def runSchedule(todaysRecordingSchedule):
@@ -76,9 +75,10 @@ def runSchedule(todaysRecordingSchedule):
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
 	for i in range(len(todaysRecordingSchedule)):
-			show = todaysRecordingSchedule[i]
-			epochStart = show['showStart'].strftime('%s')
-			recorderSchedule.enterabs(int(epochStart), 0, record, argument=(show['duration'], show['showName'], show['showStart'].date()))
+		show = todaysRecordingSchedule[i]
+		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
+		epochStart = show['showStart'].strftime('%s')
+		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(show['duration'], fileName))
 	recorderSchedule.run()
 	# At the end of the day, files will be sent out
 	# Avoid recording delay from uploading files between shows
