@@ -4,13 +4,20 @@ import sched, time # https://pythontic.com/concurrency/scheduler/introduction
 import os
 from dateutil import parser
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+API_KEY = os.getenv('API_KEY')
+EMAIL = os.getenv('EMAIL')
+PASSWORD = os.getenv('PASSWORD')
 
 # ffmpeg location needs to be updated depending on system
 #ffmpeg = '/opt/homebrew/bin/ffmpeg' # for macOS
 ffmpeg = '/usr/bin/ffmpeg' # for EC2
 
 def getTodaysShows():
-	stationData = requests.get(f"https://spinitron.com/api/shows?access-token=fsr9w2R8irUUqUkze_QUcyB3&count=15")
+	stationData = requests.get(f"https://spinitron.com/api/shows?access-token={API_KEY}&count=15")
 
 	# Check for a successful request
 	if stationData.status_code != 200:
@@ -49,7 +56,6 @@ def getTodaysShows():
 					'duration' : duration
 					# 'email' : get email address
 			})
-
 	return todaysRecordingSchedule
 
 def sendToS3(todaysRecordingSchedule):
