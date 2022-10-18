@@ -55,18 +55,22 @@ def getTodaysShows():
 def sendToS3(todaysRecordingSchedule):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
+	# show-bucket-test needs to be updated to final account
 	for i in range(len(fileName)):
 		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
 		sendStr = 'aws s3 cp '
 		sendStr = sendStr + fileName + ' s3://show-bucket-test'
 		os.system(sendStr)
 		os.system('rm ' + fileName)
+		# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
+		downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/'
+		downloadStr = downloadStr + fileName + '.mp3'
 
 # Create string in the format below:
 # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
 def record(duration, fileName):
 	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t '
-	commandStr = commandStr + "'" + str(duration) + "' -y " + fileName + ".mp3"
+	commandStr = commandStr + "'" + duration + "' -y " + fileName + ".mp3"
 	os.system(commandStr)
 
 def runSchedule(todaysRecordingSchedule):
@@ -77,8 +81,9 @@ def runSchedule(todaysRecordingSchedule):
 	for i in range(len(todaysRecordingSchedule)):
 		show = todaysRecordingSchedule[i]
 		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
+		duration = str(show['duration'])
 		epochStart = show['showStart'].strftime('%s')
-		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(show['duration'], fileName))
+		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
 	recorderSchedule.run()
 	# At the end of the day, files will be sent out
 	# Avoid recording delay from uploading files between shows
