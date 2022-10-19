@@ -58,12 +58,15 @@ def getTodaysShows():
 			})
 	return todaysRecordingSchedule
 
+def sendToDJ(fileName):
+
+
 def sendToS3(todaysRecordingSchedule):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
 	# show-bucket-test needs to be updated to final account
 	for i in range(len(fileName)):
-		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
+		fileName = todaysRecordingSchedule[i]['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
 		sendStr = 'aws s3 cp '
 		sendStr = sendStr + fileName + ' s3://show-bucket-test'
 		os.system(sendStr)
@@ -71,6 +74,7 @@ def sendToS3(todaysRecordingSchedule):
 		# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
 		downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/'
 		downloadStr = downloadStr + fileName + '.mp3'
+		sendToDJ(fileName)
 
 # Create string in the format below:
 # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
@@ -86,7 +90,7 @@ def runSchedule(todaysRecordingSchedule):
 	# Convert to epoch time for the enterabs function
 	for i in range(len(todaysRecordingSchedule)):
 		show = todaysRecordingSchedule[i]
-		fileName = todaysRecordingSchedule['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
+		fileName = todaysRecordingSchedule[i]['showStart'].date() + '_' + todaysRecordingSchedule[i]['showName']
 		duration = str(show['duration'])
 		epochStart = show['showStart'].strftime('%s')
 		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
