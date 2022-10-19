@@ -51,6 +51,7 @@ def getTodaysShows():
 		duration = stationData['items'][i]['duration']
 		# Only add show if it starts the same day and is not autoplay
 		if stationData['items'][i]['category'] != 'Automation' and showStart.date()==date.today():
+			# Need to add API hit to get email address
 			todaysRecordingSchedule.append({
 					'showName': showName,
 					'showStart' : showStart,
@@ -60,13 +61,13 @@ def getTodaysShows():
 			})
 	return todaysRecordingSchedule
 
-def sendToDJ(fileName):
+def sendToDJ(downloadStr):
 	#https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
 	s = smtplib.SMTP('smtp.gmail.com', 587)
 	s.starttls()
 	s.login(EMAIL, PASSWORD)
 	SUBJECT = 'Recording Link'
-	TEXT = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName +'.mp3'
+	TEXT = downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
 	s.sendmail("automation@kscu.org", "jeffreychen2168@gmail.com", message)
 	s.quit()
@@ -78,14 +79,13 @@ def sendToS3(todaysRecordingSchedule):
 	for i in range(len(fileName)):
 		show = todaysRecordingSchedule[i]
 		fileName = str(show['showStart'].date()) + '_' + show['showName']
-		sendStr = 'aws s3 cp '
-		sendStr = sendStr + fileName + ' s3://show-bucket-test'
+		sendStr = 'aws s3 cp ' + fileName + ' s3://show-bucket-test'
+		#email = ...
 		os.system(sendStr)
 		os.system('rm ' + fileName)
 		# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
-		downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/'
-		downloadStr = downloadStr + fileName + '.mp3'
-		sendToDJ(fileName)
+		downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName + '.mp3'
+		sendToDJ(downloadStr)
 
 def record(duration, fileName):
 	# Create string in the format below:
