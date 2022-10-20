@@ -6,6 +6,7 @@ from dateutil import parser
 import requests
 from dotenv import load_dotenv
 import smtplib
+import re
 
 load_dotenv()
 
@@ -90,7 +91,7 @@ def sendToS3(todaysRecordingSchedule):
 def record(duration, fileName):
 	# Create string in the format below:
 	# 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
-	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t ' + "'" + duration + "' -y " + fileName + ".mp3"
+	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t ' + "'" + '10' + "' -y " + fileName + ".mp3"
 	os.system(commandStr)
 
 def runSchedule(todaysRecordingSchedule):
@@ -98,11 +99,14 @@ def runSchedule(todaysRecordingSchedule):
 	# For each of the items in today's schedule
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
+	i=0
 	for showInfo in todaysRecordingSchedule:
 		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName']
 		duration = str(showInfo['duration'])
 		epochStart = showInfo['showStart'].strftime('%s')
-		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
+		time1 = time.time()+(i*10)
+		time.time()
+		recorderSchedule.enterabs(time1, 0, record, argument=(duration, fileName))
 	recorderSchedule.run()
 	# At the end of the day, files will be sent out
 	# Avoid recording delay from uploading files between shows
@@ -112,7 +116,7 @@ def runSchedule(todaysRecordingSchedule):
 while True:
 	currentTime = datetime.now().strftime("%H:%M")
 	print(currentTime)
-	if currentTime == "06:55":
-		runSchedule(getTodaysShows())
+	#if currentTime == "06:55":
+	runSchedule(getTodaysShows())
 	time.sleep(60)
 
