@@ -56,19 +56,20 @@ def getTodaysShows():
 			todaysRecordingSchedule.append({
 					'showName': showName,
 					'showStart' : showStart,
-					'showEnd' : showEnd,
 					'duration' : duration
 					# 'email' : get email address
 			})
 	return todaysRecordingSchedule
 
-def sendToDJ(downloadStr):
-	#https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
+def sendToDJ(fileName):
+	# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
+	downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName
+
 	s = smtplib.SMTP('smtp.gmail.com', 587)
 	s.starttls()
 	s.login(EMAIL, PASSWORD)
 	SUBJECT = 'Recording Link'
-	TEXT = downloadStr
+	TEXT = "Here is the recording to your show. \nLink is valid for 5 days.\n" + downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
 	s.sendmail(EMAIL, "jeffreychen2168@gmail.com", message)
 	s.quit()
@@ -78,19 +79,17 @@ def sendToS3(todaysRecordingSchedule):
 	# Send files from EC2 to S3 and delete them in EC2
 	# show-bucket-test needs to be updated to final account
 	for showInfo in todaysRecordingSchedule:
-		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName']
-		sendStr = 'aws s3 cp ' + fileName + '.mp3 s3://show-bucket-test'
+		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName'] + '.mp3'
+		sendStr = 'aws s3 cp ' + fileName + ' s3://show-bucket-test'
 		#email = ...
 		os.system(sendStr)
-		os.system('rm ' + fileName + '.mp3')
-		# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_The_Salad_Bowl.mp3
-		downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName + '.mp3'
-		sendToDJ(downloadStr)
+		os.system('rm ' + fileName)
+		sendToDJ(fileName)
 
 def record(duration, fileName):
 	# Create string in the format below:
 	# 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
-	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t ' + "'" + duration + "' -y " + fileName + ".mp3"
+	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t ' + "'" + duration + "' -y " + fileName
 	os.system(commandStr)
 
 def runSchedule(todaysRecordingSchedule):
@@ -99,7 +98,7 @@ def runSchedule(todaysRecordingSchedule):
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
 	for showInfo in todaysRecordingSchedule:
-		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName']
+		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName'] +'.mp3'
 		duration = str(showInfo['duration'])
 		epochStart = showInfo['showStart'].strftime('%s')
 		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
@@ -111,8 +110,7 @@ def runSchedule(todaysRecordingSchedule):
 
 while True:
 	currentTime = datetime.now().strftime("%H:%M")
-	print(currentTime)
 	if currentTime == "06:55":
 		runSchedule(getTodaysShows())
-	time.sleep(60)
+	time.sleep(1)
 
