@@ -50,21 +50,25 @@ def getTodaysShows():
 
 	for showInfo in stationData['items']:
 		showName = showInfo['title']
-		showName = ''.join(c for c in showName if c.isalnum())
+		showFileName = ''.join(c for c in showName if c.isalnum())
 		showStart = parser.parse(showInfo['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
+		print(showName)
+		print(str(showStart.date()) + '_' + showFileName + '.mp3')
 		# Only add show if it starts the same day and is not autoplay
 		if showInfo['category'] != 'Automation' and showStart.date()==date.today():
 			hrefLink = showInfo["_links"]["personas"][0]["href"]
 			email = getEmail(hrefLink)
 			# Need to add API hit to get email address
 			todaysRecordingSchedule.append({
-					'showName': showName,
+					'showName' : showName,
+					'showFileName': str(showStart.date()) + '_' + showFileName + '.mp3',
 					'showStart' : showStart,
 					'duration' : duration,
 					'email' : email
 			})
+
 	return todaysRecordingSchedule
 
 def sendToDJ(fileName, email, showName):
@@ -76,7 +80,6 @@ def sendToDJ(fileName, email, showName):
 	s.login(EMAIL, PASSWORD)
 	SUBJECT = f"Recording Link - {showName}"
 	text = """
-	Howdy!
 	Hey!
 	
 	We're testing a new system to automatically record and send you your shows.
@@ -96,7 +99,7 @@ def sendToS3(todaysRecordingSchedule):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
 	for showInfo in todaysRecordingSchedule:
-		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName'] + '.mp3'
+		fileName = showInfo["showFileName"]
 		sendStr = 'aws s3 cp ' + fileName + ' s3://kscu'
 		os.system(sendStr)
 		os.system('rm ' + fileName)
@@ -114,7 +117,7 @@ def runSchedule(todaysRecordingSchedule):
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
 	for showInfo in todaysRecordingSchedule:
-		fileName = str(showInfo['showStart'].date()) + '_' + showInfo['showName'] +'.mp3'
+		fileName = showInfo['showFileName']
 		duration = str(showInfo['duration'])
 		epochStart = showInfo['showStart'].strftime('%s')
 		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
@@ -125,6 +128,7 @@ def runSchedule(todaysRecordingSchedule):
 		sendToS3(todaysRecordingSchedule)
 
 while True:
+	getTodaysShows()
 	currentTime = datetime.now().strftime("%H:%M")
 	if currentTime == "06:55":
 		runSchedule(getTodaysShows())
