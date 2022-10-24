@@ -77,7 +77,7 @@ def sendToDJ(fileName, email):
 	SUBJECT = 'Recording Link'
 	TEXT = "Here is the recording to your show. \nLink is valid for 5 days.\n" + downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
-	s.sendmail(EMAIL, email, message)
+	s.sendmail(EMAIL, "jeffreychen2168@gmail.com", message)
 	s.quit()
 
 def sendToS3(todaysRecordingSchedule):
@@ -90,7 +90,7 @@ def sendToS3(todaysRecordingSchedule):
 		#email = ...
 		os.system(sendStr)
 		os.system('rm ' + fileName)
-		sendToDJ(fileName, todaysRecordingSchedule["email"])
+		sendToDJ(fileName)
 
 def record(duration, fileName):
 	# Create string in the format below:
