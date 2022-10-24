@@ -54,8 +54,6 @@ def getTodaysShows():
 		showStart = parser.parse(showInfo['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
-		print(showName)
-		print(str(showStart.date()) + '_' + showFileName + '.mp3')
 		# Only add show if it starts the same day and is not autoplay
 		if showInfo['category'] != 'Automation' and showStart.date()==date.today():
 			hrefLink = showInfo["_links"]["personas"][0]["href"]
@@ -72,6 +70,8 @@ def getTodaysShows():
 	return todaysRecordingSchedule
 
 def sendToDJ(fileName, email, showName):
+	if email == '':
+		return
 	# https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
 	downloadStr = 'https://kscu.s3.us-west-1.amazonaws.com/' + fileName
 
@@ -128,7 +128,6 @@ def runSchedule(todaysRecordingSchedule):
 		sendToS3(todaysRecordingSchedule)
 
 while True:
-	getTodaysShows()
 	currentTime = datetime.now().strftime("%H:%M")
 	if currentTime == "06:55":
 		runSchedule(getTodaysShows())
