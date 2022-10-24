@@ -70,7 +70,7 @@ def sendToDJ(fileName, showName):
 	s.login(EMAIL, PASSWORD)
 	SUBJECT = f"Recording Link - {showName}"
 	text = """
-	Howdy!
+	Hey!
 	
 	We're testing a new system to automatically record and send you your shows.
 	This link is valid for 5 days so please save this file to your local machine.
