@@ -17,6 +17,10 @@ PASSWORD = os.getenv('PASSWORD')
 #ffmpeg = '/opt/homebrew/bin/ffmpeg' # for macOS
 ffmpeg = '/usr/bin/ffmpeg' # for EC2
 
+def getEmail(link):
+	persona = requests.get(link).json()
+	return persona["email"]
+
 def getTodaysShows():
 	stationData = requests.get(f"https://spinitron.com/api/shows?access-token={API_KEY}&count=15")
 
@@ -50,18 +54,20 @@ def getTodaysShows():
 		showStart = parser.parse(showInfo['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
+		hrefLink = showInfo["_links"]["personas"][0]["href"]
+		email = getEmail(hrefLink)
 		# Only add show if it starts the same day and is not autoplay
 		if showInfo['category'] != 'Automation' and showStart.date()==date.today():
 			# Need to add API hit to get email address
 			todaysRecordingSchedule.append({
 					'showName': showName,
 					'showStart' : showStart,
-					'duration' : duration
-					# 'email' : get email address
+					'duration' : duration,
+					'email' : email
 			})
 	return todaysRecordingSchedule
 
-def sendToDJ(fileName):
+def sendToDJ(fileName, email):
 	# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
 	downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName
 
@@ -71,7 +77,7 @@ def sendToDJ(fileName):
 	SUBJECT = 'Recording Link'
 	TEXT = "Here is the recording to your show. \nLink is valid for 5 days.\n" + downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
-	s.sendmail(EMAIL, "jeffreychen2168@gmail.com", message)
+	s.sendmail(EMAIL, email, message)
 	s.quit()
 
 def sendToS3(todaysRecordingSchedule):
@@ -84,7 +90,7 @@ def sendToS3(todaysRecordingSchedule):
 		#email = ...
 		os.system(sendStr)
 		os.system('rm ' + fileName)
-		sendToDJ(fileName)
+		sendToDJ(fileName, todaysRecordingSchedule["email"])
 
 def record(duration, fileName):
 	# Create string in the format below:
