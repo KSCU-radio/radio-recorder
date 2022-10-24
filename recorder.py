@@ -61,16 +61,27 @@ def getTodaysShows():
 			})
 	return todaysRecordingSchedule
 
-def sendToDJ(fileName):
+def sendToDJ(fileName, showName):
 	# https://show-bucket-test.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
 	downloadStr = 'https://show-bucket-test.s3.us-west-1.amazonaws.com/' + fileName
 
 	s = smtplib.SMTP('smtp.gmail.com', 587)
 	s.starttls()
 	s.login(EMAIL, PASSWORD)
-	SUBJECT = 'Recording Link'
-	TEXT = "Here is the recording to your show. \nLink is valid for 5 days.\n" + downloadStr
-	message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
+	SUBJECT = f"Recording Link - {showName}"
+	text = """
+	Howdy!
+	
+	We're testing a new system to automatically record and send you your shows.
+	This link is valid for 5 days so please save this file to your local machine.
+
+	If there's any issues with this system, please let us know by emailing gm@kscu.org.
+	
+	Peace to every crease on your brain,
+	KSCU <3
+	"""
+	text += downloadStr
+	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
 	s.sendmail(EMAIL, "jeffreychen2168@gmail.com", message)
 	s.quit()
 
@@ -84,7 +95,7 @@ def sendToS3(todaysRecordingSchedule):
 		#email = ...
 		os.system(sendStr)
 		os.system('rm ' + fileName)
-		sendToDJ(fileName)
+		sendToDJ(fileName, showInfo['showName'])
 
 def record(duration, fileName):
 	# Create string in the format below:
