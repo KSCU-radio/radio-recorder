@@ -54,7 +54,7 @@ def getTodaysShows():
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
 		# Only add show if it starts the same day and is not autoplay
-		if showInfo['category'] != 'Automation' and showStart.date()==date.today():
+		if showInfo['category'] != 'Automation':
 			hrefLink = showInfo["_links"]["personas"][0]["href"]
 			email = getEmail(hrefLink)
 			# Need to add API hit to get email address
@@ -109,11 +109,11 @@ def record(duration, showInfo):
 	# 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
 	commandStr = "ffmpeg -i http://kscu.streamguys1.com:80/live -t '" + duration + "' -y " + showInfo["showFileName"]
 	os.system(commandStr)
-	sendToS3(showInfo["fileName"], showInfo["email"], showInfo["showName"])
-	sendToDJ(showInfo["fileName"], showInfo["email"], showInfo["showName"])
+	sendToS3(showInfo["showFileName"], showInfo["email"], showInfo["showName"])
+	sendToDJ(showInfo["showFileName"], showInfo["email"], showInfo["showName"])
 
-def runSchedule(todaysRecordingSchedule):
-	recorderSchedule = sched.scheduler(time.time, time.sleep)
+def runSchedule(todaysRecordingSchedule, recorderSchedule):
+
 	# For each of the items in today's schedule
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
@@ -125,7 +125,7 @@ def runSchedule(todaysRecordingSchedule):
 	# At the end of the day, files will be sent out
 	# Avoid recording delay from uploading files between shows
 
+recorderSchedule = sched.scheduler(time.time, time.sleep)
 while True:
-	currentTime = datetime.now().strftime("%H:%M")
-	if currentTime == "06:55":
-		runSchedule(getTodaysShows())
+	if recorderSchedule.empty() and datetime.now().strftime("%H:%M")[-2:] == '00':
+		runSchedule(getTodaysShows(), recorderSchedule)
