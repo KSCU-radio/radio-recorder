@@ -6,6 +6,7 @@ from dateutil import parser
 import requests
 from dotenv import load_dotenv
 import smtplib
+import re
 
 load_dotenv()
 
@@ -13,16 +14,14 @@ API_KEY = os.getenv('API_KEY')
 EMAIL = os.getenv('EMAIL')
 PASSWORD = os.getenv('PASSWORD')
 
-# ffmpeg location needs to be updated depending on system
-#ffmpeg = '/opt/homebrew/bin/ffmpeg' # for macOS
-ffmpeg = '/usr/bin/ffmpeg' # for EC2
+ffmpeg = '/usr/bin/ffmpeg'
 
 def getEmail(link):
 	persona = requests.get(link).json()
 	return persona["email"]
 
 def getTodaysShows():
-	stationData = requests.get(f"https://spinitron.com/api/shows?access-token={API_KEY}&count=15")
+	stationData = requests.get(f"https://spinitron.com/api/shows?access-token={API_KEY}&count=24")
 
 	# Check for a successful request
 	if stationData.status_code != 200:
@@ -63,15 +62,18 @@ def getTodaysShows():
 					'showName' : showName,
 					'showFileName': str(showStart.date()) + '_' + showFileName + '.mp3',
 					'showStart' : showStart,
+					'showEnd' : showEnd,
 					'duration' : duration,
 					'email' : email
 			})
-
 	return todaysRecordingSchedule
 
 def sendToDJ(fileName, email, showName):
-	if email == '':
-		return
+	# check for valid email
+	regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+	if(re.fullmatch(regex, email)) is None:
+		email = "gm@kscu.org"
+
 	# https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
 	downloadStr = 'https://kscu.s3.us-west-1.amazonaws.com/' + fileName
 
@@ -92,24 +94,23 @@ def sendToDJ(fileName, email, showName):
 	"""
 	text += downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
-	s.sendmail(EMAIL, email, message)
+	s.sendmail(EMAIL, email + ', jchen22@scu.edu, kscu@kscu.org', message)
 	s.quit()
 
-def sendToS3(todaysRecordingSchedule):
+def sendToS3(fileName, email, showName):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
-	for showInfo in todaysRecordingSchedule:
-		fileName = showInfo["showFileName"]
-		sendStr = 'aws s3 cp ' + fileName + ' s3://kscu'
-		os.system(sendStr)
-		os.system('rm ' + fileName)
-		sendToDJ(fileName, showInfo["email"], showInfo["showName"])
+	sendStr = 'aws s3 cp ' + fileName + ' s3://kscu'
+	os.system(sendStr)
+	os.system('rm ' + fileName)
 
-def record(duration, fileName):
+def record(duration, showInfo):
 	# Create string in the format below:
 	# 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
-	commandStr = 'ffmpeg -i http://kscu.streamguys1.com:80/live -t ' + "'" + duration + "' -y " + fileName
+	commandStr = "ffmpeg -i http://kscu.streamguys1.com:80/live -t '" + duration + "' -y " + showInfo["showFileName"]
 	os.system(commandStr)
+	sendToS3(showInfo["fileName"], showInfo["email"], showInfo["showName"])
+	sendToDJ(showInfo["fileName"], showInfo["email"], showInfo["showName"])
 
 def runSchedule(todaysRecordingSchedule):
 	recorderSchedule = sched.scheduler(time.time, time.sleep)
@@ -117,19 +118,14 @@ def runSchedule(todaysRecordingSchedule):
 	# Add to recording schedule
 	# Convert to epoch time for the enterabs function
 	for showInfo in todaysRecordingSchedule:
-		fileName = showInfo['showFileName']
 		duration = str(showInfo['duration'])
-		epochStart = showInfo['showStart'].strftime('%s')
-		recorderSchedule.enterabs(int(epochStart), 0, record, argument=(duration, fileName))
+		epochStart = int(showInfo['showStart'].strftime('%s'))
+		recorderSchedule.enterabs(epochStart, 0, record, argument=(duration, showInfo))
 	recorderSchedule.run()
 	# At the end of the day, files will be sent out
 	# Avoid recording delay from uploading files between shows
-	if recorderSchedule.empty():
-		sendToS3(todaysRecordingSchedule)
 
 while True:
 	currentTime = datetime.now().strftime("%H:%M")
 	if currentTime == "06:55":
 		runSchedule(getTodaysShows())
-	time.sleep(30)
-
