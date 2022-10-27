@@ -69,6 +69,7 @@ def getTodaysShows():
 	return todaysRecordingSchedule
 
 def sendToDJ(fileName, email, showName):
+	print('sending to DJ')
 	# check for valid email
 	regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 	if(re.fullmatch(regex, email)) is None:
@@ -94,10 +95,10 @@ def sendToDJ(fileName, email, showName):
 	"""
 	text += downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
-	s.sendmail(EMAIL, email + ', jchen22@scu.edu, kscu@kscu.org', message)
+	s.sendmail(EMAIL, email, message)
 	s.quit()
 
-def sendToS3(fileName, email, showName):
+def sendToS3(fileName):
 	# Old files can be removed automatically through S3
 	# Send files from EC2 to S3 and delete them in EC2
 	sendStr = 'aws s3 cp ' + fileName + ' s3://kscu'
@@ -109,10 +110,10 @@ def record(duration, showInfo):
 	# 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
 	commandStr = "ffmpeg -i http://kscu.streamguys1.com:80/live -t '" + duration + "' -y " + showInfo["showFileName"]
 	os.system(commandStr)
-	sendToS3(showInfo["showFileName"], showInfo["email"], showInfo["showName"])
+	sendToS3(showInfo["showFileName"])
 	sendToDJ(showInfo["showFileName"], showInfo["email"], showInfo["showName"])
 
-def runSchedule(todaysRecordingSchedule, recorderSchedule):
+def runSchedule(todaysRecordingSchedule):
 
 	# For each of the items in today's schedule
 	# Add to recording schedule
@@ -128,4 +129,4 @@ def runSchedule(todaysRecordingSchedule, recorderSchedule):
 recorderSchedule = sched.scheduler(time.time, time.sleep)
 while True:
 	if recorderSchedule.empty() and datetime.now().strftime("%H:%M")[-2:] == '00':
-		runSchedule(getTodaysShows(), recorderSchedule)
+		runSchedule(getTodaysShows())
