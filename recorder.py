@@ -54,7 +54,7 @@ def getTodaysShows():
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
 		# Only add show if it starts the same day and is not autoplay
-		if showInfo['category'] != 'Automation':
+		if showInfo['category'] != 'Automation' and int(showEnd.strftime('%s'))<int(time.time()):
 			hrefLink = showInfo["_links"]["personas"][0]["href"]
 			email = getEmail(hrefLink)
 			# Need to add API hit to get email address
