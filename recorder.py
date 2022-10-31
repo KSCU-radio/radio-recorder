@@ -87,13 +87,20 @@ def sendToDJ(fileName, email, showName):
 	text = """
 	Hey!
 	
+	This is an automated email from KSCU. 
 	We're testing a new system to automatically record and send you your shows.
-	This link is valid for 5 days so please save this file to your local machine.
 
-	If there's any issues with this system, please let us know by emailing gm@kscu.org.
+	You can use the link below to download your show and save it to your computer.
+	We only keep your recording for 5 days so you will need to download it to your computer to keep it permanently.
+	"""
+
+	text += downloadStr + '\n\n'
+
+	text += """If there's any issues with this system, please let us know by emailing gm@kscu.org.
 	
 	Peace to every crease on your brain,
-	KSCU <3
+	KSCU 103.3 FM
+	The Underground Sound
 	"""
 	text += downloadStr
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
