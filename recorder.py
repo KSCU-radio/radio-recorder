@@ -98,7 +98,7 @@ def sendToDJ(fileName, email, showName):
 
 	text += """If there's any issues with this system, please let us know by emailing gm@kscu.org.
 	
-	Peace to every crease on your brain,
+	Much love and respect,
 	KSCU 103.3 FM
 	The Underground Sound
 	"""
