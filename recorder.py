@@ -102,7 +102,7 @@ def sendToDJ(fileName, email, showName):
 	KSCU 103.3 FM
 	The Underground Sound
 	"""
-	text += downloadStr
+	
 	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
 	s.sendmail(EMAIL, email, message)
 	s.quit()
