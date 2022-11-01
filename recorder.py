@@ -71,7 +71,7 @@ def getTodaysShows():
 	return todaysRecordingSchedule
 
 def sendToDJ(fileName, email, showName):
-	print('sending to DJ')
+	print('Sending email to DJ')
 	# check for valid email
 	regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 	if(re.fullmatch(regex, email)) is None:
@@ -148,4 +148,4 @@ while True:
 	if recorderSchedule.empty() and datetime.now().strftime("%H:%M")[-2:] == '00':
 		print('Grabbing next 24 Shows')
 		runSchedule(getTodaysShows())
-	time.sleep(1)
+	time.sleep(1) # If there is not sleep, the CPU usage goes crazy while waiting
