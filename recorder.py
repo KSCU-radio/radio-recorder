@@ -1,5 +1,4 @@
 from datetime import date, datetime, timezone # https://docs.python.org/3/library/datetime.html
-import ffmpeg # https://kkroening.github.io/ffmpeg-python/
 import sched, time # https://pythontic.com/concurrency/scheduler/introduction
 import os
 from dateutil import parser
@@ -47,10 +46,11 @@ def getTodaysShows():
 	# Time will take into consideration Daylight Savings
 
 	todaysRecordingSchedule = []
+	illegalChar = {'#', '%', '&', '{', '}', '\\', '$', '!', "'", '"', ':', '@', '<', '>', '*', '?', '/', '+', '`', '|', '=', ' ', '.', '_', '-', '.', ','}
 
 	for showInfo in stationData['items']:
 		showName = showInfo['title']
-		showFileName = ''.join(c for c in showName if c.isalnum())
+		showFileName = ''.join(c for c in showName if c not in illegalChar)
 		showStart = parser.parse(showInfo['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
