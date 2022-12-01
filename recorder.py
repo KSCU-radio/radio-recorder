@@ -15,9 +15,13 @@ PASSWORD = os.getenv('PASSWORD')
 
 ffmpeg = '/usr/bin/ffmpeg'
 
-def getEmail(link):
+def getDJInfo(link):
 	persona = requests.get(link).json()
-	return persona["email"]
+	djInfo = {}
+	djInfo['email'] = persona['email']
+	djInfo['id'] = persona['id']
+	djInfo['dj'] = persona['name']
+	return djInfo
 
 def getTodaysShows():
 	print('Grabbing next 24 shows')
@@ -28,36 +32,23 @@ def getTodaysShows():
 		print(stationData.status_code)
 	stationData = stationData.json()
 
-	# Structure of dailyRecordingSchedule = [
-	# 	{
-	# 		'showName': 'Name-of-Show-1'
-	# 		'showStart' : datetime,
-	# 		'showEnd': datetime,
-	# 		'duration': int
-	# 	},
-	# 	{
-	# 		'showName': 'Name-of-Show-2'
-	# 		'showStart' : datetime,
-	# 		'showEnd': datetime,
-	# 		'duration': int
-	# 	},
-	# ]
-	# 
-	# Time will take into consideration Daylight Savings
-
 	todaysRecordingSchedule = []
 	illegalChar = {'#', '%', '&', '{', '}', '\\', '$', '!', "'", '"', ':', '@', '<', '>', '*', '?', '/', '+', '`', '|', '=', ' ', '.', '_', '-', '.', ','}
 
 	for showInfo in stationData['items']:
-		showName = showInfo['title']
-		showFileName = ''.join(c for c in showName if c not in illegalChar)
+		djInfo = getDJInfo(showInfo["_links"]["personas"][0]["href"])
+		email = djInfo['email']
+		dj = djInfo['dj']
+		id = djInfo['id']
 		showStart = parser.parse(showInfo['start']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		showEnd = parser.parse(showInfo['end']).replace(tzinfo=timezone.utc).astimezone(tz=None)
 		duration = showInfo['duration']
+		showName = showInfo['title']
+		showFileName = ''.join(c for c in showName if c not in illegalChar)
+		if showFileName == '':
+			showFileName = id
 		# Only add show if it starts the same day and is not autoplay
 		if showInfo['category'] != 'Automation' and int(showEnd.strftime('%s'))>int(time.time()):
-			hrefLink = showInfo["_links"]["personas"][0]["href"]
-			email = getEmail(hrefLink)
 			# Need to add API hit to get email address
 			todaysRecordingSchedule.append({
 					'showName' : showName,
@@ -65,12 +56,13 @@ def getTodaysShows():
 					'showStart' : showStart,
 					'showEnd' : showEnd,
 					'duration' : duration,
-					'email' : email
+					'email' : email,
+					'dj' : dj
 			})
 	print('Grabbing next 24 shows complete')
 	return todaysRecordingSchedule
 
-def sendToDJ(fileName, email, showName):
+def sendToDJ(fileName, email, showName, dj):
 	print('Sending email to DJ')
 	# check for valid email
 	regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
@@ -84,14 +76,13 @@ def sendToDJ(fileName, email, showName):
 	s.starttls()
 	s.login(EMAIL, PASSWORD)
 	SUBJECT = f"Recording Link - {showName}"
-	text = """
-	Hey!
+	text = f"""
+	Hey {dj}! 
 	
 	This is an automated email from KSCU. 
-	We're testing a new system to automatically record and send you your shows.
 
 	You can use the link below to download your show and save it to your computer.
-	We only keep your recording for 5 days so you will need to download it to your computer to keep it permanently.
+	We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
 	"""
 
 	text += downloadStr + '\n\n'
@@ -125,8 +116,7 @@ def record(duration, showInfo):
 	os.system(commandStr)
 	print('Recording Complete')
 	sendToS3(showInfo["showFileName"])
-	sendToDJ(showInfo["showFileName"], showInfo["email"], showInfo["showName"])
-
+	sendToDJ(showInfo["showFileName"], showInfo["email"], showInfo["showName"], showInfo["dj"])
 
 def runSchedule(todaysRecordingSchedule):
 	print('Running Schedule')
