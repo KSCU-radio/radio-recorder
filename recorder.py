@@ -103,7 +103,7 @@ def sendToDJ(fileName, email, showName):
 	The Underground Sound
 	"""
 	
-	message = 'Subject: {}\n\n{}'.format(SUBJECT, text)
+	message = 'Subject: {}\n\n{}'.format(SUBJECT, text).encode()
 	s.sendmail(EMAIL, email, message)
 	s.quit()
 	print('Email sent to DJ')
