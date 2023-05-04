@@ -4,5 +4,5 @@ radiokey.pem
 kscu.pem
 env
 __pycache__/
-.DS_Store/
-info.log
+.DS_Store
+info.log*

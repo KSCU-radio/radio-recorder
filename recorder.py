@@ -14,6 +14,7 @@ import os
 import smtplib
 import re
 import logging
+from logging.handlers import RotatingFileHandler
 from dateutil import parser
 import requests
 
@@ -26,9 +27,30 @@ from error_handling import (
 
 from config import EMAIL, PASSWORD
 
-logging.basicConfig(
-    filename="info.log", encoding="utf-8", level=logging.INFO, force=True
+# Must use old syntax to support Python 3.8
+# root_logger = logging.getLogger()
+# root_logger.setLevel(logging.INFO)
+# handler = logging.FileHandler("info.log", "w", "utf-8")
+# root_logger.addHandler(handler)
+
+# Configure the logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Set up the rotating file handler
+LOG_FILE = "info.log"
+MAX_SIZE = 10 * 1024 * 1024  # 10 MB
+BACKUP_COUNT = 2  # Number of backup files to keep
+
+handler = RotatingFileHandler(
+    LOG_FILE, maxBytes=MAX_SIZE, backupCount=BACKUP_COUNT, encoding="utf-8"
 )
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+
+# Add the handler to the logger
+root_logger.addHandler(handler)
+
 logging.info("Hello, world!")
 
 API_KEY = os.getenv("API_KEY")
@@ -52,6 +74,44 @@ def get_dj_info(link):
     dj_info["id"] = persona["id"]
     dj_info["dj"] = persona["name"]
     return dj_info
+
+
+def log_pretty_schedule(todays_recording_sched):
+    """
+    Logs the day's schedule in a pretty table format
+    """
+    headers = ["Start Time", "End Time", "Title", "DJ", "Email"]
+    rows = []
+    for show in todays_recording_sched:
+        for dj in show["djs"]:
+            rows.append(
+                [
+                    show["showStart"].strftime("%Y-%m-%d %H:%M:%S"),
+                    show["showEnd"].strftime("%Y-%m-%d %H:%M:%S"),
+                    show["showName"],
+                    dj["dj"],
+                    dj["email"],
+                ]
+            )
+
+    # Calculate the maximum widths for each column
+    max_widths = [len(header) for header in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            max_widths[i] = max(max_widths[i], len(cell))
+
+    # Add some padding
+    max_widths = [width + 1 for width in max_widths]
+
+    # Create the table header
+    table = "| " + " | ".join([f"{header:<{max_widths[i]}}" for i, header in enumerate(headers)]) + " |"
+    table += "\n" + "-" * (sum(max_widths) + len(headers) * 3 - 1)
+
+    # Create the table rows
+    for row in rows:
+        table += "\n| " + " | ".join([f"{cell:<{max_widths[i]}}" for i, cell in enumerate(row)]) + " |"
+
+    logging.info("Today's Schedule:\n%s", table)
 
 
 def get_todays_shows():
@@ -113,7 +173,6 @@ def get_todays_shows():
             dj_info = get_dj_info(show_info["_links"]["personas"][i]["href"])
             if dj_info:
                 djs.append(dj_info)
-        show_id = show_info["id"]
         show_start = (
             parser.parse(show_info["start"])
             .replace(tzinfo=timezone.utc)
@@ -125,15 +184,11 @@ def get_todays_shows():
             .astimezone(tz=None)
         )
         duration = show_info["duration"]
-        # If show has already started, modify duration to only record the remaining time
-        if int(show_start.strftime("%s")) < int(time.time()):
-            duration = int(show_end.strftime("%s")) - int(time.time())
-            logging.info("Show duration: %d", duration)
 
         show_name = show_info["title"]
         show_file_name = "".join(c for c in show_name if c not in illegal_chars)
         if show_file_name == "":
-            show_file_name = show_id
+            show_file_name = show_info["id"]
 
         # Only add show if it starts the same day or the next day until 5am
         if show_info["category"] != "Automation" and int(show_end.strftime("%s")) > int(
@@ -148,6 +203,7 @@ def get_todays_shows():
             if show_start.date() == now.date() or (
                 show_start.date() == next_day_5am.date()
                 and show_start.time() < next_day_5am.time()
+                and show_end.time() <= next_day_5am.time()
             ):
                 # Need to add API hit to get email address
                 todays_recording_sched.append(
@@ -164,6 +220,7 @@ def get_todays_shows():
                     }
                 )
     logging.info("Grabbing next 24 shows complete")
+    log_pretty_schedule(todays_recording_sched)
     return todays_recording_sched
 
 
@@ -247,13 +304,29 @@ def send_to_s3(file_name):
     logging.info("File sent to S3")
 
 
-def record(duration, show_info):
+def record(_, show_info):
     """
     Records a show for the specified duration
     """
     logging.info("Recording %s", datetime.now().strftime("%H:%M:%S"))
     # Create string in the format below:
     # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
+    # duration = int(show_end.strftime("%s")) - int(time.time())
+    
+    # calculate duration
+    duration = (int(show_info["showEnd"].strftime("%s")) - int(time.time()))
+
+    # If duration is less than 300s (5min), don't record
+    if duration < 300:
+        logging.info("Show has less than 5min remaining, not recording")
+        return
+
+    logging.info(
+        "Recording %s with duration %d - actual duration %d",
+        show_info["showFileName"],
+        show_info["duration"],
+        duration,
+    )
     command_str = (
         "ffmpeg -i http://kscu.streamguys1.com:80/live -t '"
         + duration
@@ -287,10 +360,9 @@ def run_schedule(todays_recording_sched):
     # Add to recording schedule
     # Convert to epoch time for the enterabs function
     for show_info in todays_recording_sched:
-        duration = str(show_info["duration"])
         epoch_start = int(show_info["showStart"].strftime("%s"))
         recorder_schedule.enterabs(
-            epoch_start, 0, record, argument=(duration, show_info)
+            epoch_start, 0, record, argument=(show_info["duration"], show_info)
         )
     recorder_schedule.run()
     logging.info("Schedule Complete")
@@ -303,7 +375,7 @@ def main():
     Main function
     """
     while True:
-        if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "00":
+        if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "55":
             print("Grabbing next 24 Shows")
             run_schedule(get_todays_shows())
         time.sleep(1)  # If there is not sleep, the CPU usage goes crazy while waiting
