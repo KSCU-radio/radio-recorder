@@ -1,6 +1,6 @@
 """
-Contains the main functions for the recording bot. 
-This bot is responsible for recording shows and sending emails to DJs with their shows. 
+Contains the main functions for the recording bot.
+This bot is responsible for recording shows and sending emails to DJs with their shows.
 """
 from email.message import EmailMessage
 from datetime import (
@@ -191,7 +191,6 @@ def get_todays_shows():
             .replace(tzinfo=timezone.utc)
             .astimezone(tz=None)
         )
-        duration = show_info["duration"]
 
         show_name = show_info["title"]
         show_file_name = "".join(c for c in show_name if c not in illegal_chars)
@@ -223,7 +222,7 @@ def get_todays_shows():
                         + ".mp3",
                         "showStart": show_start,
                         "showEnd": show_end,
-                        "duration": duration,
+                        "duration": show_info["duration"],
                         "djs": djs,
                     }
                 )
