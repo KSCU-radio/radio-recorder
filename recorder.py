@@ -137,16 +137,13 @@ def request_spins(show_start, duration, api_key) -> list:
         return []
 
     spins_data = spins_req.json()["items"]
-    logging.info("Got %d spins from Spinitron", len(spins_data))
     filtered_spins = []
 
     for spin in spins_data:
         spin_start = parser.parse(spin["start"])
-        # logging.info("Spin start: %s", spin_start)
-        # logging.info("Show start: %s", show_start)
         if spin_start < show_start:
             break
-        # logging.info("Appending spin to filtered spins %s", spin["start"])
+
         filtered_spins.append({"song": spin["song"], "artist": spin["artist"]})
     reversed_list = list(reversed(filtered_spins))
     return reversed_list
