@@ -1,8 +1,11 @@
 """Provides EmailMessage class for generating email messages"""
 from email.message import EmailMessage
+import os
 import smtplib
 
-from recorder import EMAIL, PASSWORD
+# from recorder import EMAIL, E_PASSWORD
+E_EMAIL = os.getenv("E_E_EMAIL")
+E_PASSWORD = os.getenv("E_PASSWORD")
 
 # Error handling functions
 def send_api_key_error_email():
@@ -27,7 +30,7 @@ def send_api_key_error_email():
     # Form message
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = EMAIL
+    message["From"] = E_EMAIL
     message["To"] = "web@kscu.org"
     message["Cc"] = "gm@kscu.org"
     message.set_content(text)
@@ -35,7 +38,7 @@ def send_api_key_error_email():
     # Open connection to Gmail server to send message
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
-    server.login(EMAIL, PASSWORD)
+    server.login(E_EMAIL, E_PASSWORD)
     server.send_message(message)
     server.quit()
     print("API key error email sent")
@@ -61,7 +64,7 @@ def send_ffmpeg_error_email():
     # Form message
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = EMAIL
+    message["From"] = E_EMAIL
     message["To"] = "web@kscu.org"
     message["Cc"] = "gm@kscu.org"
     message.set_content(text)
@@ -69,7 +72,7 @@ def send_ffmpeg_error_email():
     # Open connection to Gmail server to send message
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
-    server.login(EMAIL, PASSWORD)
+    server.login(E_EMAIL, E_PASSWORD)
     server.send_message(message)
     server.quit()
     print("ffmpeg error email sent")
@@ -95,7 +98,7 @@ def send_aws_error_email():
     # Form message
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = EMAIL
+    message["From"] = E_EMAIL
     message["To"] = "web@kscu.org"
     message["Cc"] = "gm@kscu.org"
     message.set_content(text)
@@ -103,7 +106,7 @@ def send_aws_error_email():
     # Open connection to Gmail server to send message
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
-    server.login(EMAIL, PASSWORD)
+    server.login(E_EMAIL, E_PASSWORD)
     server.send_message(message)
     server.quit()
     print("AWS error email sent")
