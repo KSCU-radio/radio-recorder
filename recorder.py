@@ -1,17 +1,21 @@
-"""Provides EmailMessage class for generating email messages"""
+"""
+Contains the main functions for the recording bot. 
+This bot is responsible for recording shows and sending emails to DJs with their shows. 
+"""
 from email.message import EmailMessage
 from datetime import (
     datetime,
     timezone,
+    timedelta,
 )  # https://docs.python.org/3/library/datetime.html
 import sched
 import time  # https://pythontic.com/concurrency/scheduler/introduction
 import os
 import smtplib
 import re
+import logging
 from dateutil import parser
 import requests
-from dotenv import load_dotenv
 
 # Error handling functions
 from error_handling import (
@@ -20,11 +24,14 @@ from error_handling import (
     send_aws_error_email,
 )
 
-load_dotenv()
+from config import EMAIL, PASSWORD
+
+logging.basicConfig(
+    filename="info.log", encoding="utf-8", level=logging.INFO, force=True
+)
+logging.info("Hello, world!")
 
 API_KEY = os.getenv("API_KEY")
-EMAIL = os.getenv("EMAIL")
-PASSWORD = os.getenv("PASSWORD")
 FFMPEG = "/usr/bin/ffmpeg"
 recorder_schedule = sched.scheduler(time.time, time.sleep)
 
@@ -35,7 +42,7 @@ def get_dj_info(link):
     """
     persona_req = requests.get(url=link, timeout=5)
     # Check for a successful request
-    if persona_req.status_code != 200:
+    if persona_req.status_code == 200:
         persona = persona_req.json()
     else:
         return False
@@ -61,7 +68,7 @@ def get_todays_shows():
         # Check for a successful request and break the loop if successful
         if station_data.status_code == 200:
             break
-        print("Error getting Spinitron data, trying again in 5 seconds")
+        logging.error("Error getting Spinitron data, trying again in 5 seconds")
         time.sleep(15)
         retries += 1
     if retries == max_retries:
@@ -118,30 +125,45 @@ def get_todays_shows():
             .astimezone(tz=None)
         )
         duration = show_info["duration"]
+        # If show has already started, modify duration to only record the remaining time
+        if int(show_start.strftime("%s")) < int(time.time()):
+            duration = int(show_end.strftime("%s")) - int(time.time())
+            logging.info("Show duration: %d", duration)
+
         show_name = show_info["title"]
         show_file_name = "".join(c for c in show_name if c not in illegal_chars)
         if show_file_name == "":
             show_file_name = show_id
 
-        # Only add show if it starts the same day and is not autoplay
+        # Only add show if it starts the same day or the next day until 5am
         if show_info["category"] != "Automation" and int(show_end.strftime("%s")) > int(
             time.time()
         ):
-            # Need to add API hit to get email address
-            todays_recording_sched.append(
-                {
-                    "showName": show_name,
-                    "showFileName": str(show_start.date())
-                    + "_"
-                    + show_file_name
-                    + ".mp3",
-                    "showStart": show_start,
-                    "showEnd": show_end,
-                    "duration": duration,
-                    "djs": djs,
-                }
+            # Check if the show starts on the same day or the next day until 5am
+            now = datetime.now()
+            next_day_5am = (now + timedelta(days=1)).replace(
+                hour=5, minute=0, second=0, microsecond=0
             )
-    print("Grabbing next 24 shows complete")
+
+            if show_start.date() == now.date() or (
+                show_start.date() == next_day_5am.date()
+                and show_start.time() < next_day_5am.time()
+            ):
+                # Need to add API hit to get email address
+                todays_recording_sched.append(
+                    {
+                        "showName": show_name,
+                        "showFileName": show_file_name
+                        + "_"
+                        + str(show_start.date())
+                        + ".mp3",
+                        "showStart": show_start,
+                        "showEnd": show_end,
+                        "duration": duration,
+                        "djs": djs,
+                    }
+                )
+    logging.info("Grabbing next 24 shows complete")
     return todays_recording_sched
 
 
@@ -149,47 +171,48 @@ def send_to_dj(file_name, email, show_name, dj_name):
     """
     Sends an email to the DJ with a link to download their show
     """
-    print("Sending email to DJ")
+    logging.info("Sending email to DJ")
     subject = f"Recording Link - {show_name}"
     download_str = "https://kscu.s3.us-west-1.amazonaws.com/" + file_name
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
-    cc_addr = False
     text = f"""
-	Hey {dj_name}! 
-	
-	This is an automated email from KSCU. 
+Hey {dj_name}! 
 
-	You can use the link below to download your show and save it to your computer.
-	We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
+This is an automated email from KSCU. 
+
+You can use the link below to download your show and save it to your computer.
+We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
 	"""
-    text += download_str + "\n\n"
-    text += """If there's any issues with this system, please let us know by emailing web@kscu.org.
-	
-	Much love from your friends at KSCU,
-	KSCU Bot
+    text += download_str + "\n"
+    text += """
+If there's any issues with this system, please let us know by emailing web@kscu.org.
+
+Much love from your friends at KSCU,
+KSCU Bot
 	"""
+    send_cc = False
     # check for valid email
     regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     if (re.fullmatch(regex, email)) is None:
         email = "gm@kscu.org"
         subject = f"Public Email Address Needs Updating - {show_name}"
-        cc_addr = True
+        send_cc = True
         text = f"""
-		Greetings staff member from the future!
+Greetings staff member from the future!
 
-		This is an automated email from the radio recording bot to let you know that the public email address for {dj_name} needs to be updated.
+This is an automated email from the radio recording bot to let you know that the public email address for {dj_name} needs to be updated.
 
-		Please include the DJ's email address in the "Public Email" field on Spinitron.
+Please include the DJ's email address in the "Public Email" field on Spinitron.
 
-		Much love,
-		KSCU Bot
+Much love,
+KSCU Bot
 		"""
     # Form message
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = EMAIL
     message["To"] = email
-    if cc_addr:
+    if send_cc:
         message["Cc"] = "gm@kscu.org"
     message.set_content(text)
 
@@ -203,32 +226,32 @@ def send_to_dj(file_name, email, show_name, dj_name):
 
     server.send_message(message)
     server.quit()
-    print("Email sent to DJ")
+    logging.info("Email sent to DJ")
 
 
 def send_to_s3(file_name):
     """
     Sends a file to S3 and deletes it from EC2
     """
-    print("Sending file to S3")
+    logging.info("Sending file to S3")
     # Old files can be removed automatically through S3
     # Send files from EC2 to S3 and delete them in EC2
     send_str = "aws s3 cp " + file_name + " s3://kscu"
     ret_val = os.system(send_str)
     if ret_val != 0:
-        print("Sending to S3 failed")
+        logging.error("Sending to S3 failed")
         send_aws_error_email()
         return
 
     os.system("rm " + file_name)
-    print("File sent to S3")
+    logging.info("File sent to S3")
 
 
 def record(duration, show_info):
     """
     Records a show for the specified duration
     """
-    print("Recording " + datetime.now().strftime("%H:%M:%S"))
+    logging.info("Recording %s", datetime.now().strftime("%H:%M:%S"))
     # Create string in the format below:
     # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
     command_str = (
@@ -239,11 +262,11 @@ def record(duration, show_info):
     )
     ret_val = os.system(command_str)
     if ret_val != 0:
-        print("Recording Failed")
+        logging.error("Recording Failed")
         send_ffmpeg_error_email()
         return
 
-    print("Recording Complete")
+    logging.info("Recording Complete")
     send_to_s3(show_info["showFileName"])
     # Proccess show info to send emails to DJs
     for cur_dj in show_info["djs"]:
@@ -259,7 +282,7 @@ def run_schedule(todays_recording_sched):
     """
     Runs the schedule for the day
     """
-    print("Running Schedule")
+    logging.info("Running Schedule")
     # For each of the items in today's schedule
     # Add to recording schedule
     # Convert to epoch time for the enterabs function
@@ -270,7 +293,7 @@ def run_schedule(todays_recording_sched):
             epoch_start, 0, record, argument=(duration, show_info)
         )
     recorder_schedule.run()
-    print("Schedule Complete")
+    logging.info("Schedule Complete")
     # At the end of the day, files will be sent out
     # Avoid recording delay from uploading files between shows
 
@@ -284,6 +307,12 @@ def main():
             print("Grabbing next 24 Shows")
             run_schedule(get_todays_shows())
         time.sleep(1)  # If there is not sleep, the CPU usage goes crazy while waiting
+    # schedule.every().day.at("05:00:00").do(run_schedule, get_todays_shows())
+    # logging.info("Starting Script")
+    # # Keep the script running so the scheduled tasks can be executed
+    # while True:
+    #     schedule.run_pending()
+    #     time.sleep(1)
 
 
 if __name__ == "__main__":
