@@ -12,6 +12,7 @@ Originally developed for [KSCU 103.3 FM](https://www.kscu.org/), the student-run
 - Uploads recorded shows to an Amazon S3 bucket
 - Sends an email to DJs with a link to download their recorded show
 - Schedules recordings for the next 24 shows using the Spinitron API
+- Ignores shows that are tagged with the 'automation' category.
 
 ## Requirements
 
