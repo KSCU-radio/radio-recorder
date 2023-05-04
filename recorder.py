@@ -83,14 +83,14 @@ def log_pretty_schedule(todays_recording_sched):
     headers = ["Start Time", "End Time", "Title", "DJ", "Email"]
     rows = []
     for show in todays_recording_sched:
-        for dj in show["djs"]:
+        for dj_info in show["djs"]:
             rows.append(
                 [
                     show["showStart"].strftime("%Y-%m-%d %H:%M:%S"),
                     show["showEnd"].strftime("%Y-%m-%d %H:%M:%S"),
                     show["showName"],
-                    dj["dj"],
-                    dj["email"],
+                    dj_info["dj"],
+                    dj_info["email"],
                 ]
             )
 
@@ -104,12 +104,20 @@ def log_pretty_schedule(todays_recording_sched):
     max_widths = [width + 1 for width in max_widths]
 
     # Create the table header
-    table = "| " + " | ".join([f"{header:<{max_widths[i]}}" for i, header in enumerate(headers)]) + " |"
+    table = (
+        "| "
+        + " | ".join([f"{header:<{max_widths[i]}}" for i, header in enumerate(headers)])
+        + " |"
+    )
     table += "\n" + "-" * (sum(max_widths) + len(headers) * 3 - 1)
 
     # Create the table rows
     for row in rows:
-        table += "\n| " + " | ".join([f"{cell:<{max_widths[i]}}" for i, cell in enumerate(row)]) + " |"
+        table += (
+            "\n| "
+            + " | ".join([f"{cell:<{max_widths[i]}}" for i, cell in enumerate(row)])
+            + " |"
+        )
 
     logging.info("Today's Schedule:\n%s", table)
 
@@ -312,9 +320,9 @@ def record(_, show_info):
     # Create string in the format below:
     # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
     # duration = int(show_end.strftime("%s")) - int(time.time())
-    
+
     # calculate duration
-    duration = (int(show_info["showEnd"].strftime("%s")) - int(time.time()))
+    duration = int(show_info["showEnd"].strftime("%s")) - int(time.time())
 
     # If duration is less than 300s (5min), don't record
     if duration < 300:
