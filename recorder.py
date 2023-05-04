@@ -72,7 +72,7 @@ def get_dj_info(link):
     dj_info = {}
     dj_info["email"] = persona["email"]
     dj_info["id"] = persona["id"]
-    dj_info["dj"] = persona["name"]
+    dj_info["name"] = persona["name"]
     return dj_info
 
 
@@ -89,7 +89,7 @@ def log_pretty_schedule(todays_recording_sched):
                     show["showStart"].strftime("%Y-%m-%d %H:%M:%S"),
                     show["showEnd"].strftime("%Y-%m-%d %H:%M:%S"),
                     show["showName"],
-                    dj_info["dj"],
+                    dj_info["name"],
                     dj_info["email"],
                 ]
             )
@@ -120,6 +120,36 @@ def log_pretty_schedule(todays_recording_sched):
         )
 
     logging.info("Today's Schedule:\n%s", table)
+
+
+# Add this function to your code
+def request_spins(show_start, duration, api_key) -> list:
+    """
+    This function requests the spins from the Spinitron API and filters them by the show's start time.
+    """
+    count = int(duration // 3600) * 30
+    count = min(count, 200)
+
+    spins_url = f"\nhttps://spinitron.com/api/spins?access-token={api_key}&count={count}"
+    spins_req = requests.get(url=spins_url, timeout=5)
+
+    if spins_req.status_code != 200:
+        return []
+
+    spins_data = spins_req.json()["items"]
+    logging.info("Got %d spins from Spinitron", len(spins_data))
+    filtered_spins = []
+
+    for spin in spins_data:
+        spin_start = parser.parse(spin["start"])
+        # logging.info("Spin start: %s", spin_start)
+        # logging.info("Show start: %s", show_start)
+        if spin_start < show_start:
+            break
+        # logging.info("Appending spin to filtered spins %s", spin["start"])
+        filtered_spins.append({"song": spin["song"], "artist": spin["artist"]})
+    reversed_list = list(reversed(filtered_spins))
+    return reversed_list
 
 
 def get_todays_shows():
@@ -231,12 +261,12 @@ def get_todays_shows():
     return todays_recording_sched
 
 
-def send_to_dj(file_name, email, show_name, dj_name):
+def send_to_dj(file_name, email, show_name, dj_name, spins_data, show_start):
     """
     Sends an email to the DJ with a link to download their show
     """
-    logging.info("Sending email to DJ")
-    subject = f"Recording Link - {show_name}"
+
+    subject = f"Recording Link - {show_name} - {show_start.strftime('%m/%d/%Y')}"
     download_str = "https://kscu.s3.us-west-1.amazonaws.com/" + file_name
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
     text = f"""
@@ -245,15 +275,17 @@ Hey {dj_name}!
 This is an automated email from KSCU. 
 
 You can use the link below to download your show and save it to your computer.
-We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
-	"""
-    text += download_str + "\n"
+We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently."""
+    text += "\n" + download_str + "\n"
+    if spins_data and len(spins_data) > 1:
+        text += "\nSpins during your show:\n"
+        for spin in spins_data:
+            text += f"{spin['song']} - {spin['artist']}\n"
     text += """
 If there's any issues with this system, please let us know by emailing web@kscu.org.
 
 Much love from your friends at KSCU,
-KSCU Bot
-	"""
+KSCU Bot"""
     send_cc = False
     # check for valid email
     regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
@@ -290,7 +322,6 @@ KSCU Bot
 
     server.send_message(message)
     server.quit()
-    logging.info("Email sent to DJ")
 
 
 def send_to_s3(file_name):
@@ -336,7 +367,7 @@ def record(_, show_info):
     )
     command_str = (
         "ffmpeg -i http://kscu.streamguys1.com:80/live -t '"
-        + duration
+        + str(duration)
         + "' -y "
         + show_info["showFileName"]
     )
@@ -348,6 +379,7 @@ def record(_, show_info):
 
     logging.info("Recording Complete")
     send_to_s3(show_info["showFileName"])
+    spins_data = request_spins(show_info["showStart"], show_info["duration"], API_KEY)
     # Proccess show info to send emails to DJs
     for cur_dj in show_info["djs"]:
         send_to_dj(
@@ -355,6 +387,8 @@ def record(_, show_info):
             cur_dj["email"],
             show_info["showName"],
             cur_dj["name"],
+            spins_data,
+            show_info["showStart"],
         )
 
 
@@ -382,7 +416,7 @@ def main():
     Main function
     """
     while True:
-        if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "55":
+        if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "00":
             print("Grabbing next 24 Shows")
             run_schedule(get_todays_shows())
         time.sleep(1)  # If there is not sleep, the CPU usage goes crazy while waiting
