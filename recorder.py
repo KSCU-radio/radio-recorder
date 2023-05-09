@@ -266,7 +266,8 @@ def send_to_dj(show_info, email, dj_name, spins_data):
     """
     Sends an email to the DJ with a link to download their show
     """
-    subject = f"Recording Link - {show_info['showName']} - {show_info['showStart'].strftime('%m/%d/%Y')}"
+    show_start = show_info['showStart'].strftime('%m/%d/%Y')
+    subject = f"Recording Link - {show_info['showName']} - {show_start}"
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
     text = f"""
 Hey {dj_name}! 
@@ -279,7 +280,7 @@ We only keep your recording for 90 days so you will need to download it to your 
     text += (
         "\nDownload here: "
         + "https://kscu.s3.us-west-1.amazonaws.com/"
-        + show_info['showFileName']
+        + show_info["showFileName"]
         + "\n"
     )
     if spins_data and len(spins_data) > 1:
