@@ -11,6 +11,7 @@ from datetime import (
 import sched
 import time  # https://pythontic.com/concurrency/scheduler/introduction
 import os
+import subprocess
 import smtplib
 import re
 import logging
@@ -125,12 +126,15 @@ def log_pretty_schedule(todays_recording_sched):
 # Add this function to your code
 def request_spins(show_start, duration, api_key) -> list:
     """
-    This function requests the spins from the Spinitron API and filters them by the show's start time.
+    This function requests the spins from the Spinitron API
+    and filters them by the show's start time.
     """
     count = int(duration // 3600) * 30
     count = min(count, 200)
 
-    spins_url = f"\nhttps://spinitron.com/api/spins?access-token={api_key}&count={count}"
+    spins_url = (
+        f"\nhttps://spinitron.com/api/spins?access-token={api_key}&count={count}"
+    )
     spins_req = requests.get(url=spins_url, timeout=5)
 
     if spins_req.status_code != 200:
@@ -262,9 +266,7 @@ def send_to_dj(file_name, email, show_name, dj_name, spins_data, show_start):
     """
     Sends an email to the DJ with a link to download their show
     """
-
     subject = f"Recording Link - {show_name} - {show_start.strftime('%m/%d/%Y')}"
-    download_str = "https://kscu.s3.us-west-1.amazonaws.com/" + file_name
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
     text = f"""
 Hey {dj_name}! 
@@ -272,8 +274,14 @@ Hey {dj_name}!
 This is an automated email from KSCU. 
 
 You can use the link below to download your show and save it to your computer.
-We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently."""
-    text += "\n" + download_str + "\n"
+We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
+"""
+    text += (
+        "\nDownload here: "
+        + "https://kscu.s3.us-west-1.amazonaws.com/"
+        + file_name
+        + "\n"
+    )
     if spins_data and len(spins_data) > 1:
         text += "\nSpins during your show:\n"
         for spin in spins_data:
@@ -287,7 +295,7 @@ KSCU Bot"""
     # check for valid email
     regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     if (re.fullmatch(regex, email)) is None:
-        email = "gm@kscu.org"
+        email = "web@kscu.org"
         subject = f"Public Email Address Needs Updating - {show_name}"
         send_cc = True
         text = f"""
@@ -299,7 +307,7 @@ Please include the DJ's email address in the "Public Email" field on Spinitron.
 
 Much love,
 KSCU Bot
-		"""
+"""
     # Form message
     message = EmailMessage()
     message["Subject"] = subject
@@ -328,14 +336,30 @@ def send_to_s3(file_name):
     logging.info("Sending file to S3")
     # Old files can be removed automatically through S3
     # Send files from EC2 to S3 and delete them in EC2
+    # send_str = "aws s3 cp " + file_name + " s3://kscu"
+    # ret_val = os.system(send_str)
+    # if ret_val != 0:
+    #     logging.error("Sending to S3 failed")
+    #     send_aws_error_email()
+    #     return
+
+    # os.system("rm " + file_name)
+
     send_str = "aws s3 cp " + file_name + " s3://kscu"
-    ret_val = os.system(send_str)
-    if ret_val != 0:
-        logging.error("Sending to S3 failed")
+    result = subprocess.run(
+        send_str, shell=True, stderr=subprocess.PIPE, text=True, check=False
+    )
+    if result.returncode != 0:
+        logging.error("Sending to S3 failed: %s", result.stderr)
         send_aws_error_email()
         return
 
-    os.system("rm " + file_name)
+    result = subprocess.run(
+        f"rm {file_name}", shell=True, stderr=subprocess.PIPE, text=True, check=False
+    )
+    if result.returncode != 0:
+        logging.error("Deleting local file failed: %s", result.stderr)
+
     logging.info("File sent to S3")
 
 
@@ -368,11 +392,20 @@ def record(_, show_info):
         + "' -y "
         + show_info["showFileName"]
     )
-    ret_val = os.system(command_str)
-    if ret_val != 0:
-        logging.error("Recording Failed")
+
+    result = subprocess.run(
+        command_str, shell=True, stderr=subprocess.PIPE, text=True, check=False
+    )
+    if result.returncode != 0:
+        logging.error("Recording Failed: %s", result.stderr)
         send_ffmpeg_error_email()
         return
+
+    # ret_val = os.system(command_str)
+    # if ret_val != 0:
+    #     logging.error("Recording Failed")
+    #     send_ffmpeg_error_email()
+    #     return
 
     logging.info("Recording Complete")
     send_to_s3(show_info["showFileName"])
