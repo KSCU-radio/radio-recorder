@@ -262,11 +262,11 @@ def get_todays_shows():
     return todays_recording_sched
 
 
-def send_to_dj(file_name, email, show_name, dj_name, spins_data, show_start):
+def send_to_dj(show_info, email, dj_name, spins_data):
     """
     Sends an email to the DJ with a link to download their show
     """
-    subject = f"Recording Link - {show_name} - {show_start.strftime('%m/%d/%Y')}"
+    subject = f"Recording Link - {show_info['showName']} - {show_info['showStart'].strftime('%m/%d/%Y')}"
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
     text = f"""
 Hey {dj_name}! 
@@ -279,7 +279,7 @@ We only keep your recording for 90 days so you will need to download it to your 
     text += (
         "\nDownload here: "
         + "https://kscu.s3.us-west-1.amazonaws.com/"
-        + file_name
+        + show_info['showFileName']
         + "\n"
     )
     if spins_data and len(spins_data) > 1:
@@ -296,7 +296,7 @@ KSCU Bot"""
     regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     if (re.fullmatch(regex, email)) is None:
         email = "web@kscu.org"
-        subject = f"Public Email Address Needs Updating - {show_name}"
+        subject = f"Public Email Address Needs Updating - {show_info['showName']}"
         send_cc = True
         text = f"""
 Greetings staff member from the future!
@@ -413,12 +413,10 @@ def record(_, show_info):
     # Proccess show info to send emails to DJs
     for cur_dj in show_info["djs"]:
         send_to_dj(
-            show_info["showFileName"],
+            show_info,
             cur_dj["email"],
-            show_info["showName"],
             cur_dj["name"],
             spins_data,
-            show_info["showStart"],
         )
 
 
