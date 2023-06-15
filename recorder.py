@@ -390,8 +390,9 @@ def record(_, show_info):
     command_str = (
         "ffmpeg -i http://kscu.streamguys1.com:80/live -t '"
         + str(duration)
-        + "' -y "
+        + "' -y '"
         + show_info["showFileName"]
+        + "'"
     )
 
     result = subprocess.run(
