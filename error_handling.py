@@ -80,7 +80,7 @@ def send_aws_error_email():
     Sends an email to web@kscu.org to notify them that AWS has failed to upload a show to S3
     """
     logging.error("Sending AWS error email")
-    subject = "AWS failed to upload a show to S3"
+    subject = "KSCU Bot - AWS failed to upload a show to S3"
     text = """
 Hello,
 
