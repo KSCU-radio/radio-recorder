@@ -204,6 +204,8 @@ def get_todays_shows():
         "_",
         "-",
         ",",
+        "(",
+        ")",
     }
 
     for show_info in station_data["items"]:
@@ -266,7 +268,7 @@ def send_to_dj(show_info, email, dj_name, spins_data):
     """
     Sends an email to the DJ with a link to download their show
     """
-    show_start = show_info['showStart'].strftime('%m/%d/%Y')
+    show_start = show_info["showStart"].strftime("%m/%d/%Y")
     subject = f"Recording Link - {show_info['showName']} - {show_start}"
     # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
     text = f"""
@@ -306,6 +308,10 @@ This is an automated email from the radio recording bot to let you know that the
 
 Please include the DJ's email address in the "Public Email" field on Spinitron.
 
+The DJ's show has been recorded and can be downloaded here: https://kscu.s3.us-west-1.amazonaws.com/{show_info['showFileName']}.
+
+You can foward this email to the DJ if you'd like, but please make sure to update the email address on Spinitron.
+
 Much love,
 KSCU Bot
 """
@@ -322,29 +328,15 @@ KSCU Bot
     server = smtplib.SMTP("smtp.gmail.com", 587)
     server.starttls()
     server.login(EMAIL, PASSWORD)
-
-    # message = 'Subject: {}\n\n{}'.format(subject, text).encode()
-    # s.sendmail(EMAIL, email, message)
-
     server.send_message(message)
     server.quit()
 
 
 def send_to_s3(file_name):
     """
-    Sends a file to S3 and deletes it from EC2
+    Sends a file to S3 and deletes it from EC2.
     """
     logging.info("Sending file to S3")
-    # Old files can be removed automatically through S3
-    # Send files from EC2 to S3 and delete them in EC2
-    # send_str = "aws s3 cp " + file_name + " s3://kscu"
-    # ret_val = os.system(send_str)
-    # if ret_val != 0:
-    #     logging.error("Sending to S3 failed")
-    #     send_aws_error_email()
-    #     return
-
-    # os.system("rm " + file_name)
 
     send_str = "aws s3 cp " + file_name + " s3://kscu"
     result = subprocess.run(
@@ -369,11 +361,8 @@ def record(_, show_info):
     Records a show for the specified duration
     """
     logging.info("Recording %s", datetime.now().strftime("%H:%M:%S"))
-    # Create string in the format below:
-    # 'ffmpeg -i http://kscu.streamguys1.com:80/live -t "3600" -y output.mp3'
-    # duration = int(show_end.strftime("%s")) - int(time.time())
 
-    # calculate duration
+    # Calculate duration
     duration = int(show_info["showEnd"].strftime("%s")) - int(time.time())
 
     # If duration is less than 300s (5min), don't record
@@ -387,6 +376,7 @@ def record(_, show_info):
         show_info["duration"],
         duration,
     )
+
     command_str = (
         "ffmpeg -i http://kscu.streamguys1.com:80/live -t '"
         + str(duration)
@@ -402,12 +392,6 @@ def record(_, show_info):
         logging.error("Recording Failed: %s", result.stderr)
         send_ffmpeg_error_email()
         return
-
-    # ret_val = os.system(command_str)
-    # if ret_val != 0:
-    #     logging.error("Recording Failed")
-    #     send_ffmpeg_error_email()
-    #     return
 
     logging.info("Recording Complete")
     send_to_s3(show_info["showFileName"])
@@ -437,8 +421,6 @@ def run_schedule(todays_recording_sched):
         )
     recorder_schedule.run()
     logging.info("Schedule Complete")
-    # At the end of the day, files will be sent out
-    # Avoid recording delay from uploading files between shows
 
 
 def main():
@@ -449,13 +431,7 @@ def main():
         if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "00":
             print("Grabbing next 24 Shows")
             run_schedule(get_todays_shows())
-        time.sleep(1)  # If there is not sleep, the CPU usage goes crazy while waiting
-    # schedule.every().day.at("05:00:00").do(run_schedule, get_todays_shows())
-    # logging.info("Starting Script")
-    # # Keep the script running so the scheduled tasks can be executed
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(1)
+        time.sleep(1)
 
 
 if __name__ == "__main__":
