@@ -1,61 +1,86 @@
-# Radio Show Recorder
+# Radio Show Recording Bot
 
-This program is an automated radio show recorder that records shows from a streaming URL, uploads the recorded shows to an Amazon S3 bucket, and sends an email to the DJs with a download link to their recorded show. It schedules recordings for the upcoming 24 shows using the Spinitron API.
-
-The program is intended to run on an AWS EC2 Instance and upload files to an Amazon S3 bucket. It can be run on a local machine, but the AWS CLI must be configured and the AWS credentials must have permission to upload files to the S3 bucket.
-
-Originally developed for [KSCU 103.3 FM](https://www.kscu.org/), the student-run radio station at Santa Clara University. Check us out!
+This bot automatically records radio shows from a stream URL based on schedule data from the Spinitron API, uploads recordings to AWS S3, and emails links to DJs.
 
 ## Features
 
-- Automatically records radio shows from a streaming URL
-- Uploads recorded shows to an Amazon S3 bucket
-- Sends an email to DJs with a link to download their recorded show
-- Schedules recordings for the next 24 shows using the Spinitron API
-- Ignores shows that are tagged with the 'automation' category.
+- Automatically fetches show schedules from Spinitron API
+- Records shows using ffmpeg
+- Uploads recordings to AWS S3
+- Emails download links to DJs
+- Includes song list data in emails
+- Comprehensive error handling and logging
 
-## Requirements
+## Setup
 
-- Python 3.x
-- [FFmpeg](https://www.ffmpeg.org/download.html)
-- [AWS CLI](https://aws.amazon.com/cli/)
-- A Spinitron API key
-- DJ emails listed as 'public emails' on Spinitron
-- A Gmail account for sending emails
-- An Amazon S3 bucket for storing the recorded shows
+1. Clone this repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Install ffmpeg: `sudo apt-get install ffmpeg` (Ubuntu/Debian)
+4. Configure AWS CLI: `aws configure`
+5. Copy `config.toml.example` to `config.toml` and edit with your settings
+6. Run the bot: `python main.py`
 
-## Installation
+## Configuration
 
-1. Clone the repository:
+Edit `config.toml` with your settings:
+
+```toml
+[email]
+address = "your-email@example.com"
+password = "your-app-password"
+
+[api]
+spinitron_key = "your-spinitron-api-key"
+
+[streaming]
+url = "https://your-stream-url.com/stream"
+
+[storage]
+s3_bucket = "your-s3-bucket-name"
+
+[logging]
+file = "recorder.log"
+level = "INFO"
+max_size = 10485760  # 10MB
+backup_count = 5
+
+[logging.loggers]
+main = "INFO"
+schedule = "INFO"
+api = "INFO"
+recorder = "INFO"
+email = "INFO"
+file_ops = "INFO"
+
+[logging.filters]
+show_schedule = true
+show_api_calls = true
+show_recording = true
+show_email = true
+show_file_ops = true
 ```
-git clone https://github.com/yourusername/radio-show-recorder.git
-cd radio-show-recorder
-```
-
-2. Install the required Python libraries:
-```
-pip install -r requirements.txt
-```
-
-3. Set up the environment variables in a `.env` file:
-```
-API_KEY=your_spinitron_api_key
-EMAIL=your_gmail_email
-PASSWORD=your_gmail_password
-```
-
-4. Make sure that FFmpeg and the AWS CLI are installed and configured on your system.
 
 ## Usage
 
-To run the program, simply execute the script:
+Start the bot with:
 
+```bash
+python main.py
 ```
-python radio_show_recorder.py
-```
 
-The script will run indefinitely, continuously updating the recording schedule and processing new shows.
+It will automatically:
+1. Fetch the schedule from Spinitron
+2. Schedule recordings for upcoming shows
+3. Record shows when they start
+4. Upload recordings to S3
+5. Email download links to DJs
 
-## Contributing
+## Troubleshooting
 
-Contributions are welcome! Please open an issue or submit a pull request if you have any improvements or suggestions.
+Check the log file (default: `recorder.log`) for detailed information about any issues.
+
+Common problems:
+- Incorrect Spinitron API key - check your API key in config.toml
+- Missing ffmpeg - ensure ffmpeg is installed
+- AWS S3 permissions - verify your AWS credentials and bucket permissions
+- Email sending failures - check your email address and app password

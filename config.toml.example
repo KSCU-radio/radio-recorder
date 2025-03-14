@@ -1,0 +1,48 @@
+# Radio Show Recording Bot Configuration
+
+[email]
+# Email address for sending notifications to DJs
+address = "your-email@example.com"
+# This should be an application-specific password, not your main account password
+password = "your-app-password"
+
+[api]
+# Spinitron API key
+spinitron_key = "your-spinitron-api-key"
+
+[streaming]
+# URL of the radio stream to record
+url = "https://your-stream-url.com/stream"
+
+[storage]
+# AWS S3 bucket name for storing recordings
+s3_bucket = "your-s3-bucket-name"
+
+[logging]
+# Log file location
+file = "recorder.log"
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = "INFO"
+# Maximum log file size in bytes (default: 10MB)
+max_size = 10485760
+# Number of backup log files to keep
+backup_count = 5
+# Log format
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# Logger-specific levels
+[logging.loggers]
+main = "INFO"
+schedule = "INFO"
+api = "INFO"
+recorder = "INFO"
+email = "INFO"
+file_ops = "INFO"
+
+# Logging filters
+[logging.filters]
+show_schedule = true
+show_api_calls = true
+show_recording = true
+show_email = true
+show_file_ops = true

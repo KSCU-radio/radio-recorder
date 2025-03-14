@@ -6,3 +6,5 @@ env
 __pycache__/
 .DS_Store
 info.log*
+old_recorder.py
+config.toml
