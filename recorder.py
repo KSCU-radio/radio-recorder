@@ -28,11 +28,14 @@ from error_handling import (
 
 from config import EMAIL, PASSWORD
 
-# Must use old syntax to support Python 3.8
-# root_logger = logging.getLogger()
-# root_logger.setLevel(logging.INFO)
-# handler = logging.FileHandler("info.log", "w", "utf-8")
-# root_logger.addHandler(handler)
+# Validate EMAIL format
+regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+if not re.fullmatch(regex, EMAIL):
+    raise ValueError("Invalid sender email address (EMAIL). Please correct it.")
+
+# Validate PASSWORD format
+if not PASSWORD:
+    raise ValueError("Password is empty. Please provide a password.")
 
 # Configure the logger
 root_logger = logging.getLogger()
@@ -266,12 +269,21 @@ def get_todays_shows():
 
 def send_to_dj(show_info, email, dj_name, spins_data):
     """
-    Sends an email to the DJ with a link to download their show
+    Sends an email to the DJ with a link to download their show, with error handling.
     """
-    show_start = show_info["showStart"].strftime("%m/%d/%Y")
-    subject = f"Recording Link - {show_info['showName']} - {show_start}"
-    # ie https://kscu.s3.us-west-1.amazonaws.com/2022-10-17_TheSaladBowl.mp3
-    text = f"""
+    try:
+        # Validate required keys in show_info
+        required_keys = ["showStart", "showName", "showFileName"]
+        for key in required_keys:
+            if key not in show_info:
+                raise KeyError(f"Missing required key in show_info: {key}")
+        
+        # Format date for email
+        show_start = show_info["showStart"].strftime("%m/%d/%Y")
+        subject = f"Recording Link - {show_info['showName']} - {show_start}"
+        
+        # Construct email body
+        text = f"""
 Hey {dj_name}! 
 
 This is an automated email from KSCU. 
@@ -279,29 +291,30 @@ This is an automated email from KSCU.
 You can use the link below to download your show and save it to your computer.
 We only keep your recording for 90 days so you will need to download it to your computer to keep it permanently.
 """
-    text += (
-        "\nDownload here: "
-        + "https://kscu.s3.us-west-1.amazonaws.com/"
-        + show_info["showFileName"]
-        + "\n"
-    )
-    if spins_data and len(spins_data) > 1:
-        text += "\nSpins during your show:\n"
-        for spin in spins_data:
-            text += f"{spin['song']} - {spin['artist']}\n"
-    text += """
+        text += (
+            "\nDownload here: "
+            + "https://kscu.s3.us-west-1.amazonaws.com/"
+            + show_info["showFileName"]
+            + "\n"
+        )
+        
+        if spins_data and isinstance(spins_data, list) and len(spins_data) > 0:
+            text += "\nSpins during your show:\n"
+            for spin in spins_data:
+                if "song" in spin and "artist" in spin:
+                    text += f"{spin['song']} - {spin['artist']}\n"
+        text += """
 If there's any issues with this system, please let us know by emailing web@kscu.org.
 
 Much love from your friends at KSCU,
 KSCU Bot"""
-    send_cc = False
-    # check for valid email
-    regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-    if (re.fullmatch(regex, email)) is None:
-        email = "web@kscu.org"
-        subject = f"Public Email Address Needs Updating - {show_info['showName']}"
-        send_cc = True
-        text = f"""
+        
+        # Validate email format
+        regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+        if re.fullmatch(regex, email) is None:
+            email = "web@kscu.org"
+            subject = f"Public Email Address Needs Updating - {show_info['showName']}"
+            text = f"""
 Greetings staff member from the future!
 
 This is an automated email from the radio recording bot to let you know that the public email address for {dj_name} needs to be updated.
@@ -310,26 +323,36 @@ Please include the DJ's email address in the "Public Email" field on Spinitron.
 
 The DJ's show has been recorded and can be downloaded here: https://kscu.s3.us-west-1.amazonaws.com/{show_info['showFileName']}.
 
-You can foward this email to the DJ if you'd like, but please make sure to update the email address on Spinitron.
+You can forward this email to the DJ if you'd like, but please make sure to update the email address on Spinitron.
 
 Much love,
 KSCU Bot
 """
-    # Form message
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = EMAIL
-    message["To"] = email
-    if send_cc:
-        message["Cc"] = "gm@kscu.org"
-    message.set_content(text)
-
-    # Open connection to gmail server to send message
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(EMAIL, PASSWORD)
-    server.send_message(message)
-    server.quit()
+        
+        # Form email message
+        message = EmailMessage()
+        message["Subject"] = subject
+        message["From"] = EMAIL
+        message["To"] = email
+        if email == "web@kscu.org":
+            message["Cc"] = "gm@kscu.org"
+        message.set_content(text)
+        
+        # Send email
+        try:
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls()
+            server.login(EMAIL, PASSWORD)
+            server.send_message(message)
+            server.quit()
+            logging.info("Email sent successfully.")
+        except smtplib.SMTPException as e:
+            logging.error(f"Error while sending email: {e}")
+        
+    except KeyError as e:
+        logging.error(f"KeyError: {e}")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
 
 
 def send_to_s3(file_name):
@@ -429,7 +452,6 @@ def main():
     """
     while True:
         if recorder_schedule.empty() and datetime.now().strftime("%H:%M")[-2:] == "00":
-            print("Grabbing next 24 Shows")
             run_schedule(get_todays_shows())
         time.sleep(1)
 
